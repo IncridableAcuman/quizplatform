@@ -24,7 +24,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@JsonBackReference
 public class Option {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

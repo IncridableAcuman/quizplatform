@@ -33,7 +33,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@JsonBackReference
 public class Quiz {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

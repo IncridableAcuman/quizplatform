@@ -3,6 +3,7 @@ package com.quizplatform.backend.modules.quiz.domain.controller;
 import com.quizplatform.backend.modules.category.domain.dto.CategoryResponse;
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.service.CategoryService;
+import com.quizplatform.backend.modules.quiz.domain.dto.QuizResponseDto;
 import com.quizplatform.backend.modules.quiz.domain.entity.Quiz;
 import com.quizplatform.backend.modules.quiz.domain.service.QuizService;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class QuizController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Quiz> getQuizDetails(@PathVariable Long id) {
+    public ResponseEntity<QuizResponseDto.QuizPublicResponse> getQuizDetails(@PathVariable Long id) {
         return ResponseEntity.ok(quizService.getQuizById(id));
     }
 }
