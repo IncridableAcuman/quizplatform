@@ -1,7 +1,5 @@
 package com.quizplatform.backend.modules.quiz.domain.controller;
 
-
-
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.service.CategoryService;
 import com.quizplatform.backend.modules.quiz.domain.entity.Quiz;
@@ -19,6 +17,12 @@ public class QuizController {
 
     private final CategoryService categoryService;
     private final QuizService quizService;
+
+    // ROOT GET /api/v1/quizzes -> Barcha aktiv viktorinalarni qaytaradi
+    @GetMapping
+    public ResponseEntity<List<Quiz>> getAllQuizzes() {
+        return ResponseEntity.ok(quizService.getAllQuizzes());
+    }
 
     @GetMapping("/categories")
     public ResponseEntity<List<Category>> getCategories() {

@@ -64,6 +64,10 @@ public class QuizService {
         return quizRepository.save(quiz);
     }
 
+    public List<Quiz> getAllQuizzes() {
+        return quizRepository.findAll(); // yoki quizRepository.findByIsActiveTrue();
+    }
+
     public List<Quiz> getQuizzesByCategory(Long categoryId) {
         return quizRepository.findByCategoryId(categoryId);
     }

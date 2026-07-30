@@ -1,6 +1,5 @@
 package com.quizplatform.backend.modules.category.domain.service;
 
-
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.repository.CategoryRepository;
 import com.quizplatform.backend.modules.quiz.domain.dto.QuizDto;

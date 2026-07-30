@@ -7,6 +7,7 @@ import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { MainLayout } from "./components/layout/MainLayout";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { LeaderboardPage } from "./pages/leaderboard/LeaderboardPage";
+import { QuizzesPage } from "./pages/quiz/QuizzesPage";
 
 // Placeholder-lar (Keyinchalik to'liq sahifalar bilan almashtiriladi)
 const DashboardPlaceholder = () => (
@@ -28,7 +29,7 @@ export const App: React.FC = () => {
         {/* Himoyalangan (Protected) Marshrutlar - MainLayout bilan */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/quizzes" element={<DashboardPlaceholder />} />
+            <Route path="/quizzes" element={<QuizzesPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
           </Route>

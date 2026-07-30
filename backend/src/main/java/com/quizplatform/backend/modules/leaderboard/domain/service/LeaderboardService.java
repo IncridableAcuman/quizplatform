@@ -1,7 +1,5 @@
 package com.quizplatform.backend.modules.leaderboard.domain.service;
 
-
-
 import com.quizplatform.backend.modules.auth.domain.entity.User;
 import com.quizplatform.backend.modules.auth.domain.repository.UserRepository;
 import com.quizplatform.backend.modules.leaderboard.domain.dto.LeaderboardDto;
@@ -68,7 +66,7 @@ public class LeaderboardService {
         return response;
     }
 
-    // 4. Foydalanuvchining shaxsiy chuqurlashtirilgan statistikasi
+    // 4. Foydalanuvchining shaxsiy statistikasi
     public LeaderboardDto.UserStatsResponse getUserStats(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Foydalanuvchi topilmadi"));
