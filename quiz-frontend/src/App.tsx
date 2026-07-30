@@ -8,15 +8,10 @@ import { MainLayout } from "./components/layout/MainLayout";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { LeaderboardPage } from "./pages/leaderboard/LeaderboardPage";
 import { QuizzesPage } from "./pages/quiz/QuizzesPage";
+import { AdminQuizManagement } from "./pages/admin/AdminQuizManagement";
 
-// Placeholder-lar (Keyinchalik to'liq sahifalar bilan almashtiriladi)
-const DashboardPlaceholder = () => (
-  <div className="text-white text-xl font-bold">Dashboard Sahifasi</div>
-);
 
-const AdminPlaceholder = () => (
-  <div className="text-white text-xl font-bold">Admin Panel Sahifasi</div>
-);
+
 
 export const App: React.FC = () => {
   return (
@@ -36,13 +31,14 @@ export const App: React.FC = () => {
 
           {/* Fullscreen Test Topshirish Sahifasi (Layout-siz) */}
           <Route path="/quiz/:quizId" element={<QuizTakePage />} />
+          <Route path="/admin" element={<AdminQuizManagement />} />
 
           {/* Faqat Admin uchun Yopiq Marshrut */}
-          <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+          {/* <Route element={<ProtectedRoute requiredRole="USER" />}>
             <Route element={<MainLayout />}>
               <Route path="/admin" element={<AdminPlaceholder />} />
             </Route>
-          </Route>
+          </Route> */}
         </Route>
 
         {/* Noma'lum yo'llarni Dashboardga yo'naltirish */}

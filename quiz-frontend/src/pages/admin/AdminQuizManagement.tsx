@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Trash2,
@@ -8,9 +8,9 @@ import {
   X,
   Save,
   BookOpen,
-} from 'lucide-react';
-import { axiosClient } from '../../api/axiosClient';
-import type { Quiz, Category } from '../../types';
+} from "lucide-react";
+import { axiosClient } from "../../api/axiosClient";
+import type { Quiz, Category } from "../../types";
 
 interface OptionDTO {
   id?: number;
@@ -20,7 +20,7 @@ interface OptionDTO {
 
 interface QuestionDTO {
   id?: number;
-  questionText: string;
+  content: string; // Backend 'content' fieldini kutadi (questionText o'rniga)
   options: OptionDTO[];
 }
 
@@ -29,8 +29,8 @@ interface QuizFormData {
   title: string;
   description: string;
   timeLimitMinutes: number;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
-  categoryId: number | '';
+  difficulty: "EASY" | "MEDIUM" | "HARD";
+  categoryId: number | null; // Bo'sh string bo'lmasligi uchun null qo'llanadi
   questions: QuestionDTO[];
 }
 
@@ -43,29 +43,36 @@ export const AdminQuizManagement: React.FC = () => {
 
   // Form State
   const [formData, setFormData] = useState<QuizFormData>({
-    title: '',
-    description: '',
+    title: "",
+    description: "",
     timeLimitMinutes: 15,
-    difficulty: 'MEDIUM',
-    categoryId: '',
+    difficulty: "MEDIUM",
+    categoryId: null,
     questions: [],
   });
 
-  // Ma'lumotlarni yuklash (useEffect warning va memory-leak larning oldini olish)
   useEffect(() => {
     let isMounted = true;
 
     const fetchData = async () => {
       try {
         const [quizzesRes, categoriesRes] = await Promise.all([
-          axiosClient.get<Quiz[]>('/admin/quizzes'),
-          axiosClient.get<Category[]>('/categories'),
+          axiosClient.get<Quiz[]>("/quizzes"),
+          axiosClient.get<Category[]>("/categories"),
         ]);
 
         if (isMounted) {
           setQuizzes(quizzesRes.data);
           setCategories(categoriesRes.data);
           setLoading(false);
+
+          // Kategoriya ro'yxati kelishi bilan default ID ni set qilamiz
+          if (categoriesRes.data && categoriesRes.data.length > 0) {
+            setFormData((prev) => ({
+              ...prev,
+              categoryId: categoriesRes.data[0].id,
+            }));
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -84,51 +91,53 @@ export const AdminQuizManagement: React.FC = () => {
 
   const refreshQuizzes = async () => {
     try {
-      const response = await axiosClient.get<Quiz[]>('/admin/quizzes');
+      const response = await axiosClient.get<Quiz[]>("/quizzes");
       setQuizzes(response.data);
     } catch (err) {
       console.error("Quizlarni qayta yuklashda xatolik:", err);
     }
   };
 
-  // Modalni ochish (Yaratish yoki Tahrirlash uchun)
   const openModal = (quiz?: Quiz) => {
+    const defaultCategoryId = categories.length > 0 ? categories[0].id : null;
+
     if (quiz) {
-      // Question -> QuestionDTO tipiga o'girish (content -> questionText)
-      const mappedQuestions: QuestionDTO[] = (quiz.questions || []).map((q) => ({
-        id: q.id,
-        questionText: q.content,
-        options: (q.options || []).map((opt) => ({
-          id: opt.id,
-          optionText: opt.optionText,
-          isCorrect: false, // Zarurat bo'lsa backenddan isCorrect kelishi ko'zda tutiladi
-        })),
-      }));
+      const mappedQuestions: QuestionDTO[] = (quiz.questions || []).map(
+        (q) => ({
+          id: q.id,
+          content: q.content,
+          options: (q.options || []).map((opt) => ({
+            id: opt.id,
+            optionText: opt.optionText,
+            isCorrect: opt.isCorrect ?? false,
+          })),
+        }),
+      );
 
       setFormData({
         id: quiz.id,
         title: quiz.title,
-        description: quiz.description || '',
+        description: quiz.description || "",
         timeLimitMinutes: quiz.timeLimitMinutes,
-        difficulty: quiz.difficulty || 'MEDIUM',
-        categoryId: quiz.category?.id || '',
+        difficulty: quiz.difficulty || "MEDIUM",
+        categoryId: quiz.category?.id || defaultCategoryId,
         questions: mappedQuestions,
       });
     } else {
       setFormData({
-        title: '',
-        description: '',
+        title: "",
+        description: "",
         timeLimitMinutes: 15,
-        difficulty: 'MEDIUM',
-        categoryId: categories[0]?.id || '',
+        difficulty: "MEDIUM",
+        categoryId: defaultCategoryId,
         questions: [
           {
-            questionText: '',
+            content: "",
             options: [
-              { optionText: '', isCorrect: true },
-              { optionText: '', isCorrect: false },
-              { optionText: '', isCorrect: false },
-              { optionText: '', isCorrect: false },
+              { optionText: "", isCorrect: true },
+              { optionText: "", isCorrect: false },
+              { optionText: "", isCorrect: false },
+              { optionText: "", isCorrect: false },
             ],
           },
         ],
@@ -136,10 +145,13 @@ export const AdminQuizManagement: React.FC = () => {
     }
     setIsModalOpen(true);
   };
-
-  // Quiz O'chirish
   const handleDeleteQuiz = async (id: number) => {
-    if (!window.confirm("Haqiqatdan ham ushbu quizni va uning barcha savollarini o'chirmoqchimisiz?")) return;
+    if (
+      !window.confirm(
+        "Haqiqatdan ham ushbu quizni va uning barcha savollarini o'chirmoqchimisiz?",
+      )
+    )
+      return;
 
     try {
       await axiosClient.delete(`/admin/quizzes/${id}`);
@@ -149,26 +161,24 @@ export const AdminQuizManagement: React.FC = () => {
     }
   };
 
-  // Dinamik Savol Qo'shish
   const handleAddQuestion = () => {
     setFormData((prev) => ({
       ...prev,
       questions: [
         ...prev.questions,
         {
-          questionText: '',
+          content: "",
           options: [
-            { optionText: '', isCorrect: true },
-            { optionText: '', isCorrect: false },
-            { optionText: '', isCorrect: false },
-            { optionText: '', isCorrect: false },
+            { optionText: "", isCorrect: true },
+            { optionText: "", isCorrect: false },
+            { optionText: "", isCorrect: false },
+            { optionText: "", isCorrect: false },
           ],
         },
       ],
     }));
   };
 
-  // Savolni O'chirish
   const handleRemoveQuestion = (index: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -176,33 +186,63 @@ export const AdminQuizManagement: React.FC = () => {
     }));
   };
 
-  // Variant To'g'riligini Tanlash (Radio kabi bittasi true bo'ladi)
   const handleSelectCorrectOption = (qIndex: number, oIndex: number) => {
     setFormData((prev) => {
       const updatedQuestions = [...prev.questions];
-      updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.map((opt, idx) => ({
-        ...opt,
-        isCorrect: idx === oIndex,
-      }));
+      updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.map(
+        (opt, idx) => ({
+          ...opt,
+          isCorrect: idx === oIndex,
+        }),
+      );
       return { ...prev, questions: updatedQuestions };
     });
   };
 
-  // Form Yuborish (Create / Update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.categoryId) {
+      alert("Iltimos, kategoriyani tanlang!");
+      return;
+    }
+
     setSubmitting(true);
+
+    // Backend payload validation formatga keltirish
+    const payload = {
+      title: formData.title,
+      description: formData.description,
+      timeLimitMinutes: Number(formData.timeLimitMinutes),
+      difficulty: formData.difficulty,
+      categoryId: Number(formData.categoryId),
+      questions: formData.questions.map((q) => ({
+        ...(q.id && { id: q.id }),
+        content: q.content,
+        options: q.options.map((opt) => ({
+          ...(opt.id && { id: opt.id }),
+          optionText: opt.optionText,
+          isCorrect: Boolean(opt.isCorrect),
+        })),
+      })),
+    };
 
     try {
       if (formData.id) {
-        await axiosClient.put(`/admin/quizzes/${formData.id}`, formData);
+        await axiosClient.put(`/admin/quizzes/${formData.id}`, payload);
       } else {
-        await axiosClient.post('/admin/quizzes', formData);
+        await axiosClient.post("/admin/quizzes", payload);
       }
       setIsModalOpen(false);
       await refreshQuizzes();
-    } catch (err) {
-      console.error("Quizni saqlashda xatolik:", err);
+    } catch (err: any) {
+      console.error(
+        "Quizni saqlashda xatolik:",
+        err.response?.data || err.message,
+      );
+      alert(
+        `Xatolik: ${JSON.stringify(err.response?.data?.message || err.response?.data || "Kiritilgan ma'lumotlarni tekshiring")}`,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -218,7 +258,6 @@ export const AdminQuizManagement: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* Sarlavha va Yaratish Tugmasi */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
@@ -226,7 +265,7 @@ export const AdminQuizManagement: React.FC = () => {
             <span>Quiz va Savollar Boshqaruvi</span>
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Yangi quizlar va savollar to'plamini yaratish, tahrirlash hamda o'chirish
+            Yangi quizlar va savollar to'plamini yaratish hamda boshqarish
           </p>
         </div>
 
@@ -239,7 +278,6 @@ export const AdminQuizManagement: React.FC = () => {
         </button>
       </div>
 
-      {/* Quiz-lar Jadvali */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -255,16 +293,27 @@ export const AdminQuizManagement: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {quizzes.map((quiz) => (
-                <tr key={quiz.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3.5 px-4 font-semibold text-white">{quiz.title}</td>
-                  <td className="py-3.5 px-4 text-slate-400">{quiz.category?.name || 'Umumiy'}</td>
+                <tr
+                  key={quiz.id}
+                  className="hover:bg-slate-800/30 transition-colors"
+                >
+                  <td className="py-3.5 px-4 font-semibold text-white">
+                    {quiz.title}
+                  </td>
+                  <td className="py-3.5 px-4 text-slate-400">
+                    {quiz.category?.name || "Umumiy"}
+                  </td>
                   <td className="py-3.5 px-4">
                     <span className="text-xs px-2.5 py-1 rounded-md font-mono bg-slate-800 text-sky-400 border border-slate-700">
-                      {quiz.difficulty || 'MEDIUM'}
+                      {quiz.difficulty || "MEDIUM"}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 text-slate-400">{quiz.timeLimitMinutes} min</td>
-                  <td className="py-3.5 px-4 font-mono">{quiz.questions?.length || 0} ta</td>
+                  <td className="py-3.5 px-4 text-slate-400">
+                    {quiz.timeLimitMinutes} min
+                  </td>
+                  <td className="py-3.5 px-4 font-mono">
+                    {quiz.questions?.length || 0} ta
+                  </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -290,7 +339,6 @@ export const AdminQuizManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Admin Quiz Yaratish/Tahrirlash Modali */}
       <AnimatePresence>
         {isModalOpen && (
           <>
@@ -307,7 +355,6 @@ export const AdminQuizManagement: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="fixed top-6 bottom-6 left-4 right-4 max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl z-50 p-6 flex flex-col shadow-2xl overflow-hidden"
             >
-              {/* Modal Sarlavhasi */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <h2 className="text-xl font-bold text-white">
                   {formData.id ? "Quizni Tahrirlash" : "Yangi Quiz Yaratish"}
@@ -320,9 +367,11 @@ export const AdminQuizManagement: React.FC = () => {
                 </button>
               </div>
 
-              {/* Modal Body (Scrollable Form) */}
-              <form id="quiz-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto py-6 space-y-6 pr-2">
-                {/* Asosiy Quiz Ma'lumotlari */}
+              <form
+                id="quiz-form"
+                onSubmit={handleSubmit}
+                className="flex-1 overflow-y-auto py-6 space-y-6 pr-2"
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -332,7 +381,9 @@ export const AdminQuizManagement: React.FC = () => {
                       type="text"
                       required
                       value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, title: e.target.value })
+                      }
                       placeholder="Masalan: Advanced Java Concurrency"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     />
@@ -340,18 +391,29 @@ export const AdminQuizManagement: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Kategoriya
+                      Kategoriya ({categories.length} ta mavjud)
                     </label>
                     <select
-                      value={formData.categoryId}
-                      onChange={(e) => setFormData({ ...formData, categoryId: Number(e.target.value) })}
+                      value={formData.categoryId ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          categoryId: Number(e.target.value),
+                        })
+                      }
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     >
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
+                      {categories.length === 0 ? (
+                        <option value="" disabled>
+                          Kategoriyalar yuklanmadi yoki mavjud emas
                         </option>
-                      ))}
+                      ) : (
+                        categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
 
@@ -361,7 +423,15 @@ export const AdminQuizManagement: React.FC = () => {
                     </label>
                     <select
                       value={formData.difficulty}
-                      onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as 'EASY' | 'MEDIUM' | 'HARD' })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          difficulty: e.target.value as
+                            | "EASY"
+                            | "MEDIUM"
+                            | "HARD",
+                        })
+                      }
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     >
                       <option value="EASY">Oson (Easy)</option>
@@ -380,7 +450,12 @@ export const AdminQuizManagement: React.FC = () => {
                       max={180}
                       required
                       value={formData.timeLimitMinutes}
-                      onChange={(e) => setFormData({ ...formData, timeLimitMinutes: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          timeLimitMinutes: Number(e.target.value),
+                        })
+                      }
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     />
                   </div>
@@ -392,7 +467,12 @@ export const AdminQuizManagement: React.FC = () => {
                     <textarea
                       rows={2}
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
                       placeholder="Quiz haqida qisqacha ma'lumot..."
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     />
@@ -401,12 +481,13 @@ export const AdminQuizManagement: React.FC = () => {
 
                 <hr className="border-slate-800" />
 
-                {/* Savollar Bo'limi */}
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                       <HelpCircle className="w-5 h-5 text-sky-400" />
-                      <span>Savollar Ro'yxati ({formData.questions.length})</span>
+                      <span>
+                        Savollar Ro'yxati ({formData.questions.length})
+                      </span>
                     </h3>
 
                     <button
@@ -420,7 +501,10 @@ export const AdminQuizManagement: React.FC = () => {
                   </div>
 
                   {formData.questions.map((question, qIdx) => (
-                    <div key={qIdx} className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-4">
+                    <div
+                      key={qIdx}
+                      className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-4"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-mono font-bold text-sky-400">
                           #{qIdx + 1}-Savol
@@ -440,31 +524,32 @@ export const AdminQuizManagement: React.FC = () => {
                         type="text"
                         required
                         placeholder="Savol matnini kiriting..."
-                        value={question.questionText}
+                        value={question.content}
                         onChange={(e) => {
                           const updated = [...formData.questions];
-                          updated[qIdx].questionText = e.target.value;
+                          updated[qIdx].content = e.target.value;
                           setFormData({ ...formData, questions: updated });
                         }}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
                       />
 
-                      {/* Variantlar */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         {question.options.map((option, oIdx) => (
                           <div
                             key={oIdx}
                             className={`flex items-center gap-2 border p-2.5 rounded-xl transition-colors ${
                               option.isCorrect
-                                ? 'border-emerald-500/50 bg-emerald-500/5'
-                                : 'border-slate-800 bg-slate-900'
+                                ? "border-emerald-500/50 bg-emerald-500/5"
+                                : "border-slate-800 bg-slate-900"
                             }`}
                           >
                             <input
                               type="radio"
                               name={`correct-opt-${qIdx}`}
                               checked={option.isCorrect}
-                              onChange={() => handleSelectCorrectOption(qIdx, oIdx)}
+                              onChange={() =>
+                                handleSelectCorrectOption(qIdx, oIdx)
+                              }
                               className="accent-emerald-500 w-4 h-4 cursor-pointer"
                             />
                             <input
@@ -474,8 +559,12 @@ export const AdminQuizManagement: React.FC = () => {
                               value={option.optionText}
                               onChange={(e) => {
                                 const updated = [...formData.questions];
-                                updated[qIdx].options[oIdx].optionText = e.target.value;
-                                setFormData({ ...formData, questions: updated });
+                                updated[qIdx].options[oIdx].optionText =
+                                  e.target.value;
+                                setFormData({
+                                  ...formData,
+                                  questions: updated,
+                                });
                               }}
                               className="w-full bg-transparent text-xs text-white focus:outline-none"
                             />
@@ -487,7 +576,6 @@ export const AdminQuizManagement: React.FC = () => {
                 </div>
               </form>
 
-              {/* Modal Footer */}
               <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
                 <button
                   type="button"
@@ -504,7 +592,7 @@ export const AdminQuizManagement: React.FC = () => {
                   className="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-semibold transition-all disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{submitting ? 'Saqlanmoqda...' : 'Saqlash'}</span>
+                  <span>{submitting ? "Saqlanmoqda..." : "Saqlash"}</span>
                 </button>
               </div>
             </motion.div>
