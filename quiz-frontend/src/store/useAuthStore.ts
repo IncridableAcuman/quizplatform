@@ -18,6 +18,23 @@ interface AuthState {
   refreshAccessToken: () => Promise<string | null>;
 }
 
+// Tokenni dekod qilish uchun yordamchi funksiya
+const parseJwt = (token: string) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -32,7 +49,20 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const response = await axiosClient.post<AuthResponse>('/auth/login', credentials);
-          const { accessToken, refreshToken, user } = response.data;
+          const { accessToken, refreshToken } = response.data;
+
+          // Token ichidan rol va usernameni ajratib olamiz
+          const decodedToken = parseJwt(accessToken);
+          const roles = decodedToken?.roles || [];
+          const isAdmin = roles.includes('ROLE_ADMIN');
+          const username = decodedToken?.sub || 'User';
+
+          const user = {
+            id: 1,
+            username: username,
+            email: credentials.username || `${username}@quizplatform.com`, // Login qilganda kiritilgan email yoki default
+            role: isAdmin ? ('ADMIN' as const) : ('USER' as const),
+          };
 
           set({
             accessToken,
@@ -66,6 +96,16 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
+      // useAuthStore ichiga qo'shimcha action qo'shish:
+      fetchUser: async () => {
+        try {
+          const response = await axiosClient.get<User>('/auth/me'); // yoki profilni oluvchi endpoint
+          set({ user: response.data, isAuthenticated: true });
+        } catch (error) {
+          get().logout();
+        }
+      },
+
 
       // Logout
       logout: () => {
@@ -108,7 +148,7 @@ export const useAuthStore = create<AuthState>()(
           });
 
           return newAccessToken;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {
           // Refresh token ham eskirgan bo'lsa tizimdan chiqarib yuboramiz
           get().logout();
@@ -125,6 +165,6 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
+    },
   )
 );

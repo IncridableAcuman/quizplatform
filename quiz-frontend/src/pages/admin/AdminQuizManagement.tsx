@@ -29,8 +29,9 @@ interface QuizFormData {
   title: string;
   description: string;
   timeLimitMinutes: number;
+  passingScore: number; // <-- Qo'shildi
   difficulty: "EASY" | "MEDIUM" | "HARD";
-  categoryId: number | null; // Bo'sh string bo'lmasligi uchun null qo'llanadi
+  categoryId: number | null;
   questions: QuestionDTO[];
 }
 
@@ -46,6 +47,7 @@ export const AdminQuizManagement: React.FC = () => {
     title: "",
     description: "",
     timeLimitMinutes: 15,
+    passingScore: 60, // <-- O'tish bali uchun odatiy qiymat (masalan: 60)
     difficulty: "MEDIUM",
     categoryId: null,
     questions: [],
@@ -119,6 +121,7 @@ export const AdminQuizManagement: React.FC = () => {
         title: quiz.title,
         description: quiz.description || "",
         timeLimitMinutes: quiz.timeLimitMinutes,
+        passingScore: quiz.passingScore || 60, // <-- Tahrirlashda mavjudini olish
         difficulty: quiz.difficulty || "MEDIUM",
         categoryId: quiz.category?.id || defaultCategoryId,
         questions: mappedQuestions,
@@ -128,6 +131,7 @@ export const AdminQuizManagement: React.FC = () => {
         title: "",
         description: "",
         timeLimitMinutes: 15,
+        passingScore: 60,
         difficulty: "MEDIUM",
         categoryId: defaultCategoryId,
         questions: [
@@ -214,6 +218,7 @@ export const AdminQuizManagement: React.FC = () => {
       title: formData.title,
       description: formData.description,
       timeLimitMinutes: Number(formData.timeLimitMinutes),
+      passingScore: Number(formData.passingScore),
       difficulty: formData.difficulty,
       categoryId: Number(formData.categoryId),
       questions: formData.questions.map((q) => ({
@@ -292,7 +297,7 @@ export const AdminQuizManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {quizzes.map((quiz) => (
+              {Array.isArray(quizzes) && quizzes.map((quiz) => (
                 <tr
                   key={quiz.id}
                   className="hover:bg-slate-800/30 transition-colors"
@@ -456,6 +461,26 @@ export const AdminQuizManagement: React.FC = () => {
                           timeLimitMinutes: Number(e.target.value),
                         })
                       }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      O'tish Balli (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      required
+                      value={formData.passingScore}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          passingScore: Number(e.target.value),
+                        })
+                      }
+                      placeholder="Masalan: 60"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     />
                   </div>

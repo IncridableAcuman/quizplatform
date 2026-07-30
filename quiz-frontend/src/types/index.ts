@@ -25,6 +25,7 @@ export interface Category {
 export interface Option {
   id: number;
   optionText: string;
+  isCorrect?: boolean;
 }
 
 export interface Question {

@@ -51,6 +51,9 @@ export const QuizzesPage: React.FC = () => {
 
   // Filter va Search Logikasi (useMemo orqali optimallashtirilgan)
   const filteredQuizzes = useMemo(() => {
+    // Agar quizzes massiv bo'lmasa, bo'sh massiv qaytarib xatolikning oldini olamiz
+    if (!Array.isArray(quizzes)) return [];
+
     return quizzes.filter((quiz) => {
       const matchesSearch =
         quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

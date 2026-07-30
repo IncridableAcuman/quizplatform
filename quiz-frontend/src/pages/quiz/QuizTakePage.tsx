@@ -148,7 +148,7 @@ export const QuizTakePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 py-10 px-4 flex flex-col items-center justify-center relative overflow-hidden">
       {/* Background Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-150 h-150 bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-3xl relative z-10">
         {!quizResult ? (

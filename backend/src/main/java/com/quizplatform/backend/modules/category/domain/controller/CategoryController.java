@@ -1,13 +1,21 @@
 package com.quizplatform.backend.modules.category.domain.controller;
 
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.quizplatform.backend.modules.category.domain.dto.CategoryResponse;
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.service.CategoryService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import com.quizplatform.backend.modules.quiz.domain.dto.QuizDto;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/categories")
@@ -15,6 +23,16 @@ import java.util.List;
 public class CategoryController {
 
     private final CategoryService categoryService;
+
+    @PostMapping
+    public ResponseEntity<CategoryResponse> createCategory(@RequestBody QuizDto.CategoryRequest request) {
+        Category savedCategory = categoryService.createCategory(request);
+        
+        // Category entity'ni CategoryResponse DTO'ga o'tkazib qaytaramiz
+        CategoryResponse response = CategoryResponse.fromEntity(savedCategory);
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 
     // GET /api/v1/categories
     @GetMapping

@@ -31,14 +31,13 @@ export const App: React.FC = () => {
 
           {/* Fullscreen Test Topshirish Sahifasi (Layout-siz) */}
           <Route path="/quiz/:quizId" element={<QuizTakePage />} />
-          <Route path="/admin" element={<AdminQuizManagement />} />
 
           {/* Faqat Admin uchun Yopiq Marshrut */}
-          {/* <Route element={<ProtectedRoute requiredRole="USER" />}>
+           <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
             <Route element={<MainLayout />}>
-              <Route path="/admin" element={<AdminPlaceholder />} />
+              <Route path="/admin" element={<AdminQuizManagement />} />
             </Route>
-          </Route> */}
+          </Route>
         </Route>
 
         {/* Noma'lum yo'llarni Dashboardga yo'naltirish */}
