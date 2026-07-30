@@ -1,5 +1,6 @@
 package com.quizplatform.backend.modules.category.domain.controller;
 
+import com.quizplatform.backend.modules.category.domain.dto.CategoryResponse;
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.service.CategoryService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ public class CategoryController {
 
     // GET /api/v1/categories
     @GetMapping
-    public ResponseEntity<List<Category>> getAllCategories() {
+    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
         return ResponseEntity.ok(categoryService.getAllCategories());
     }
 

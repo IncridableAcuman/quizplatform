@@ -1,5 +1,6 @@
 package com.quizplatform.backend.modules.category.domain.service;
 
+import com.quizplatform.backend.modules.category.domain.dto.CategoryResponse;
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.repository.CategoryRepository;
 import com.quizplatform.backend.modules.quiz.domain.dto.QuizDto;
@@ -32,8 +33,11 @@ public class CategoryService {
         return categoryRepository.save(category);
     }
 
-    public List<Category> getAllCategories() {
-        return categoryRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> getAllCategories() {
+        return categoryRepository.findAll().stream()
+                .map(CategoryResponse::fromEntity)
+                .toList();
     }
 
     public List<Category> getRootCategories() {

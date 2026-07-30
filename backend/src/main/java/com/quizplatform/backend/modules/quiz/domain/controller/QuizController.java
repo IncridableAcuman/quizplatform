@@ -1,5 +1,6 @@
 package com.quizplatform.backend.modules.quiz.domain.controller;
 
+import com.quizplatform.backend.modules.category.domain.dto.CategoryResponse;
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.service.CategoryService;
 import com.quizplatform.backend.modules.quiz.domain.entity.Quiz;
@@ -25,7 +26,7 @@ public class QuizController {
     }
 
     @GetMapping("/categories")
-    public ResponseEntity<List<Category>> getCategories() {
+    public ResponseEntity<List<CategoryResponse>> getCategories() {
         return ResponseEntity.ok(categoryService.getAllCategories());
     }
 
