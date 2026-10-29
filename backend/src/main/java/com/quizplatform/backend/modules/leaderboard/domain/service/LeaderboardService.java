@@ -92,15 +92,82 @@ public class LeaderboardService {
             }
         }
 
+        // Foydalanuvchining so'nggi natijalari
+        List<com.quizplatform.backend.modules.result.domain.entity.Result> userResults =
+                resultRepository.findByUserIdOrderByCompletedAtDesc(user.getId());
+
+        int totalTimeSpentSeconds = 0;
+        int totalEarnedScore = 0;
+
+        List<LeaderboardDto.RecentResultItem> recentResults = new ArrayList<>();
+        List<LeaderboardDto.ScoreHistoryItem> scoreHistory = new ArrayList<>();
+        java.util.Map<String, java.util.List<Integer>> categoryScores = new java.util.HashMap<>();
+
+        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("dd.MM");
+
+        for (int i = 0; i < userResults.size(); i++) {
+            com.quizplatform.backend.modules.result.domain.entity.Result r = userResults.get(i);
+            int score = r.getScore() != null ? r.getScore() : 0;
+            totalEarnedScore += score;
+            totalTimeSpentSeconds += (r.getTimeTakenSeconds() != null ? r.getTimeTakenSeconds() : 0);
+
+            if (recentResults.size() < 5) {
+                String qTitle = r.getQuiz() != null ? r.getQuiz().getTitle() : "Quiz";
+                String rDate = r.getCompletedAt() != null ? r.getCompletedAt().format(dtf) : "Bugun";
+                recentResults.add(LeaderboardDto.RecentResultItem.builder()
+                        .id(r.getId())
+                        .quizTitle(qTitle)
+                        .score(score)
+                        .isPassed(Boolean.TRUE.equals(r.getIsPassed()))
+                        .date(rDate)
+                        .build());
+            }
+
+            // Category performance guruhlash
+            if (r.getQuiz() != null && r.getQuiz().getCategory() != null) {
+                String catName = r.getQuiz().getCategory().getName();
+                categoryScores.computeIfAbsent(catName, k -> new ArrayList<>()).add(score);
+            }
+        }
+
+        // Oxirgi 7 ta natija scoreHistory uchun (teskari tartibda, xronologik)
+        int historyLimit = Math.min(userResults.size(), 7);
+        for (int i = historyLimit - 1; i >= 0; i--) {
+            com.quizplatform.backend.modules.result.domain.entity.Result r = userResults.get(i);
+            String day = r.getCompletedAt() != null ? r.getCompletedAt().format(dtf) : "Test";
+            scoreHistory.add(LeaderboardDto.ScoreHistoryItem.builder()
+                    .date(day)
+                    .score(r.getScore() != null ? r.getScore() : 0)
+                    .build());
+        }
+
+        List<LeaderboardDto.CategoryPerformanceItem> categoryPerformance = new ArrayList<>();
+        categoryScores.forEach((cat, scores) -> {
+            double avg = scores.stream().mapToInt(Integer::intValue).average().orElse(0.0);
+            categoryPerformance.add(LeaderboardDto.CategoryPerformanceItem.builder()
+                    .category(cat)
+                    .score((int) Math.round(avg))
+                    .build());
+        });
+
+        int avgScore = totalQuizzes > 0 ? totalEarnedScore / totalQuizzes : 0;
+        int totalTimeSpentMinutes = totalTimeSpentSeconds / 60;
+
         return LeaderboardDto.UserStatsResponse.builder()
                 .username(user.getUsername())
                 .fullName(user.getFullName())
-                .totalScore(user.getTotalScore())
+                .totalScore(user.getTotalScore() != null ? user.getTotalScore() : totalEarnedScore)
+                .averageScore(avgScore)
                 .totalQuizzesCompleted(totalQuizzes)
+                .totalQuizzesTaken(totalQuizzes)
                 .passedQuizzes(passedQuizzes)
                 .accuracyPercentage(accuracy)
                 .averageTimeTakenSeconds(avgTimeSeconds)
+                .totalTimeSpentMinutes(totalTimeSpentMinutes)
                 .memberSince(user.getCreatedAt())
+                .scoreHistory(scoreHistory)
+                .categoryPerformance(categoryPerformance)
+                .recentResults(recentResults)
                 .build();
     }
 }

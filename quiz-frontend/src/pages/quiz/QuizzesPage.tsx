@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
-  Filter,
   Clock,
   HelpCircle,
   Play,
-  Sparkles,
   BookOpen,
+  Award,
+  Zap,
 } from "lucide-react";
 import { axiosClient } from "../../api/axiosClient";
 import type { Quiz, Category } from "../../types";
@@ -23,9 +23,7 @@ export const QuizzesPage: React.FC = () => {
 
   // Filter va Search State-lari
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | "ALL">(
-    "ALL",
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | "ALL">("ALL");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("ALL");
 
   // Ma'lumotlarni yuklash
@@ -37,8 +35,8 @@ export const QuizzesPage: React.FC = () => {
           axiosClient.get<Category[]>("/categories"),
         ]);
 
-        setQuizzes(quizzesRes.data);
-        setCategories(categoriesRes.data);
+        setQuizzes(quizzesRes.data || []);
+        setCategories(categoriesRes.data || []);
       } catch (err) {
         console.error("Ma'lumotlarni yuklashda xatolik:", err);
       } finally {
@@ -49,9 +47,8 @@ export const QuizzesPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Filter va Search Logikasi (useMemo orqali optimallashtirilgan)
+  // Filter va Search Logikasi
   const filteredQuizzes = useMemo(() => {
-    // Agar quizzes massiv bo'lmasa, bo'sh massiv qaytarib xatolikning oldini olamiz
     if (!Array.isArray(quizzes)) return [];
 
     return quizzes.filter((quiz) => {
@@ -71,7 +68,6 @@ export const QuizzesPage: React.FC = () => {
     });
   }, [quizzes, searchQuery, selectedCategoryId, selectedDifficulty]);
 
-  // Qiyinchilik darajasi uchun badge ranglari
   const getDifficultyBadge = (difficulty?: string) => {
     switch (difficulty?.toUpperCase()) {
       case "EASY":
@@ -79,7 +75,7 @@ export const QuizzesPage: React.FC = () => {
       case "MEDIUM":
         return "bg-amber-500/10 text-amber-400 border-amber-500/20";
       case "HARD":
-        return "bg-red-500/10 text-red-400 border-red-500/20";
+        return "bg-rose-500/10 text-rose-400 border-rose-500/20";
       default:
         return "bg-slate-800 text-slate-300 border-slate-700";
     }
@@ -87,8 +83,9 @@ export const QuizzesPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-col justify-center items-center h-80 gap-3">
+        <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-400 text-sm">Viktorinalar yuklanmoqda...</p>
       </div>
     );
   }
@@ -98,177 +95,155 @@ export const QuizzesPage: React.FC = () => {
       {/* Sarlavha Bo'limi */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
-            <BookOpen className="w-7 h-7 text-sky-400" />
-            <span>Mavjud Quiz-lar</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold uppercase tracking-wider mb-2">
+            <Zap className="w-3.5 h-3.5" />
+            <span>Bilim Sinovlari</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Mavjud Viktorinalar
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            O'zingizga mos yo'nalishni tanlang va bilimingizni sinab ko'ring
+            Qiziqqan sohangizni tanlang va o'z darajangizni amalda sinab ko'ring
           </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs font-semibold bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl text-slate-300 self-start sm:self-auto">
-          <Sparkles className="w-4 h-4 text-sky-400" />
-          <span>Jami: {filteredQuizzes.length} ta test</span>
         </div>
       </div>
 
-      {/* Filter va Search Boshqaruv Paneli */}
-      <div className="bg-slate-900/80 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-4 backdrop-blur-xl">
-        <div className="flex flex-col md:flex-row items-center gap-3">
-          {/* Qidiruv Kiritish */}
-          <div className="relative w-full md:flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Quiz nomi yoki kalit so'z bo'yicha qidiruv..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-950/80 border border-slate-800 text-slate-200 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/50 transition-all placeholder:text-slate-500"
-            />
-          </div>
-
-          {/* Qiyinchilik Darajasi Bo'yicha Filter */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
-            <select
-              value={selectedDifficulty}
-              onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="w-full md:w-44 bg-slate-950/80 border border-slate-800 text-slate-200 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-sky-500/50 transition-all cursor-pointer"
-            >
-              <option value="ALL">Barcha Darajalar</option>
-              <option value="EASY">Oson (Easy)</option>
-              <option value="MEDIUM">O'rta (Medium)</option>
-              <option value="HARD">Qiyin (Hard)</option>
-            </select>
-          </div>
+      {/* Filter va Qidiruv Boshqaruvi */}
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Qidiruv Input */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Test nomi yoki ta'rifi bo'yicha qidiring..."
+            className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all backdrop-blur-md"
+          />
         </div>
 
-        {/* Kategoriya Pill-lari (Chips) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 scrollbar-none">
-          <button
-            onClick={() => setSelectedCategoryId("ALL")}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
-              selectedCategoryId === "ALL"
-                ? "bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sm shadow-sky-500/10"
-                : "bg-slate-950/60 text-slate-400 border-slate-800 hover:bg-slate-800/60 hover:text-slate-200"
-            }`}
-          >
-            Barcha Kategoriyalar
-          </button>
-
-          {categories.map((cat) => (
+        {/* Qiyinchilik Filtri */}
+        <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 p-1.5 rounded-2xl">
+          {["ALL", "EASY", "MEDIUM", "HARD"].map((diff) => (
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategoryId(cat.id)}
-              className={`px-4 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
-                selectedCategoryId === cat.id
-                  ? "bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sm shadow-sky-500/10"
-                  : "bg-slate-950/60 text-slate-400 border-slate-800 hover:bg-slate-800/60 hover:text-slate-200"
+              key={diff}
+              onClick={() => setSelectedDifficulty(diff)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                selectedDifficulty === diff
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/20"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
               }`}
             >
-              {cat.name}
+              {diff === "ALL" ? "Barchasi" : diff === "EASY" ? "Oson" : diff === "MEDIUM" ? "O'rta" : "Qiyin"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Quiz-lar Kartalari Ro'yxati */}
-      <AnimatePresence mode="wait">
-        {filteredQuizzes.length > 0 ? (
-          <motion.div
-            layout
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      {/* Kategoriyalar Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <button
+          onClick={() => setSelectedCategoryId("ALL")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
+            selectedCategoryId === "ALL"
+              ? "bg-sky-500/20 border-sky-500/50 text-sky-300 shadow-sm shadow-sky-500/20"
+              : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+          }`}
+        >
+          Barcha Kategoriyalar
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setSelectedCategoryId(cat.id)}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
+              selectedCategoryId === cat.id
+                ? "bg-sky-500/20 border-sky-500/50 text-sky-300 shadow-sm shadow-sky-500/20"
+                : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+            }`}
           >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Viktorinalar Grid */}
+      {filteredQuizzes.length === 0 ? (
+        <div className="text-center py-16 bg-slate-900/40 border border-dashed border-slate-800 rounded-3xl">
+          <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-white">Hech qanday viktorina topilmadi</h3>
+          <p className="text-slate-400 text-xs mt-1 max-w-sm mx-auto">
+            Qidiruv so'zini yoki tanlangan filtrlarni o'zgartirib ko'ring.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
             {filteredQuizzes.map((quiz, index) => (
               <motion.div
                 key={quiz.id}
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.25, delay: index * 0.05 }}
-                className="bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-6 flex flex-col justify-between transition-all group hover:shadow-xl hover:shadow-sky-500/5 relative overflow-hidden"
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                className="group relative flex flex-col justify-between bg-slate-900/70 border border-slate-800 hover:border-sky-500/50 rounded-3xl p-6 backdrop-blur-xl transition-all duration-300 hover:shadow-2xl hover:shadow-sky-500/10 hover:-translate-y-1"
               >
-                {/* Tepasidagi Kategoriya va Status */}
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-lg">
-                      {quiz.category?.name || "Umumiy"}
+                  {/* Top Badges */}
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20">
+                      {quiz.category?.name || "Kategoriya"}
                     </span>
-
                     <span
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-lg border uppercase tracking-wider ${getDifficultyBadge(
-                        quiz.difficulty,
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${getDifficultyBadge(
+                        quiz.difficulty
                       )}`}
                     >
-                      {quiz.difficulty || "MEDIUM"}
+                      {quiz.difficulty}
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-white group-hover:text-sky-300 transition-colors line-clamp-1">
+                  {/* Title & Description */}
+                  <h3 className="text-lg font-bold text-white group-hover:text-sky-300 transition-colors line-clamp-2">
                     {quiz.title}
                   </h3>
-
-                  <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
-                    {quiz.description ||
-                      "Ushbu quiz bo'yicha bilimingizni sinab ko'ring va natijaga erishing."}
+                  <p className="text-slate-400 text-xs mt-2 line-clamp-3 leading-relaxed">
+                    {quiz.description || "Ushbu test orqali o'z bilimlaringizni sinab ko'ring."}
                   </p>
                 </div>
 
-                {/* Pastki Meta-ma'lumotlar va Tugma */}
-                <div className="mt-6 pt-4 border-t border-slate-800/80 space-y-4">
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{quiz.timeLimitMinutes} daqiqa</span>
+                {/* Footer Info & Action */}
+                <div className="mt-6 pt-5 border-t border-slate-800/80">
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-5">
+                    <div className="bg-slate-800/50 p-2 rounded-xl">
+                      <Clock className="w-3.5 h-3.5 text-sky-400 mx-auto mb-1" />
+                      <span className="font-semibold text-slate-200">{quiz.timeLimitMinutes} daq</span>
                     </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{quiz.questions?.length ?? 0} savol</span>
+                    <div className="bg-slate-800/50 p-2 rounded-xl">
+                      <HelpCircle className="w-3.5 h-3.5 text-indigo-400 mx-auto mb-1" />
+                      <span className="font-semibold text-slate-200">
+                        {quiz.questionsCount || quiz.questions?.length || 10} savol
+                      </span>
+                    </div>
+                    <div className="bg-slate-800/50 p-2 rounded-xl">
+                      <Award className="w-3.5 h-3.5 text-amber-400 mx-auto mb-1" />
+                      <span className="font-semibold text-slate-200">{quiz.passingScore}% o'tish</span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => navigate(`/quiz/${quiz.id}`)}
-                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white text-xs font-semibold transition-all flex items-center justify-center gap-2 group-hover:shadow-lg group-hover:shadow-sky-600/20"
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-sky-500/20 active:scale-98 group-hover:shadow-sky-500/30"
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <Play className="w-4 h-4 fill-white" />
                     <span>Testni Boshlash</span>
                   </button>
                 </div>
               </motion.div>
             ))}
-          </motion.div>
-        ) : (
-          /* Natija Topilmadi Holati */
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16 bg-slate-900/40 border border-slate-800/60 rounded-2xl"
-          >
-            <div className="w-12 h-12 bg-slate-800 border border-slate-700 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <Search className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">
-              Hech qanday quiz topilmadi
-            </h3>
-            <p className="text-slate-400 text-xs mt-1 max-w-sm mx-auto">
-              Qidiruv so'zini yoki tanlangan filterlarni o'zgartirib ko'ring.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCategoryId("ALL");
-                setSelectedDifficulty("ALL");
-              }}
-              className="mt-4 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
-            >
-              Filterlarni Tozalash
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 };

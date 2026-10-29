@@ -1,31 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import {
-  Award,
   Download,
-  Calendar,
-  Clock,
   CheckCircle2,
   XCircle,
   FileText,
   Search,
   Loader2,
-  TrendingUp,
+  History,
+  BookOpen,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { axiosClient } from '../../api/axiosClient';
-
-interface QuizResultHistory {
-  id: number;
-  quizId: number;
-  quizTitle: string;
-  categoryName: string;
-  score: number;
-  totalQuestions: number;
-  percentage: number;
-  passed: boolean;
-  completedAt: string;
-  timeSpentSeconds: number;
-}
+import type { QuizResultHistory } from '../../types';
 
 export const ResultHistory: React.FC = () => {
   const [results, setResults] = useState<QuizResultHistory[]>([]);
@@ -33,6 +19,7 @@ export const ResultHistory: React.FC = () => {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PASSED' | 'FAILED'>('ALL');
+  const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
@@ -42,7 +29,7 @@ export const ResultHistory: React.FC = () => {
         setLoading(true);
         const response = await axiosClient.get<QuizResultHistory[]>('/results/history');
         if (isMounted) {
-          setResults(response.data);
+          setResults(response.data || []);
         }
       } catch (err) {
         if (isMounted) {
@@ -67,16 +54,15 @@ export const ResultHistory: React.FC = () => {
     try {
       setDownloadingId(resultId);
 
-      const response = await axiosClient.get(`/results/${resultId}/certificate`, {
-        responseType: 'blob', // Binary PDF fayl formatida qabul qilamiz
+      const response = await axiosClient.get(`/results/${resultId}/pdf`, {
+        responseType: 'blob',
       });
 
-      // Blob obyektini yaratib, avtomatik yuklash linkini simulyatsiya qilish
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.setAttribute('download', `Certificate_${quizTitle.replace(/\s+/g, '_')}.pdf`);
+      link.setAttribute('download', `Certificate_${quizTitle.replace(/\s+/g, '_')}_${resultId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -92,188 +78,181 @@ export const ResultHistory: React.FC = () => {
   // Saralash va Filterlash
   const filteredResults = results.filter((item) => {
     const matchesSearch =
-      item.quizTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+      (item.quizTitle?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (item.categoryName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
-    if (statusFilter === 'PASSED') return matchesSearch && item.passed;
-    if (statusFilter === 'FAILED') return matchesSearch && !item.passed;
+    const isPassed = item.passed !== undefined ? item.passed : Boolean(item.isPassed);
+
+    if (statusFilter === 'PASSED') return matchesSearch && isPassed;
+    if (statusFilter === 'FAILED') return matchesSearch && !isPassed;
     return matchesSearch;
   });
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
-  };
-
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-col justify-center items-center h-80 gap-3">
+        <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-400 text-sm">Natijalar tarixi yuklanmoqda...</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Sarlavha */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
-            <FileText className="w-7 h-7 text-sky-400" />
-            <span>Natijalar Tarixi va Sertifikatlar</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold uppercase tracking-wider mb-2">
+            <History className="w-3.5 h-3.5" />
+            <span>Natijalar Jurnali</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Topshirilgan Testlar Tarixi
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Topshirilgan barcha testlar statistikasi hamda o'tilgan testlar uchun PDF sertifikatlarni yuklab olish
+            Barcha ishlagan viktorinalaringiz natijalari va rasmiy PDF sertifikatlar
           </p>
         </div>
 
-        {/* Qisqacha statistik ko'rsatkich */}
-        <div className="flex items-center gap-4 bg-slate-900 border border-slate-800 p-3 rounded-2xl">
-          <div className="p-3 bg-sky-500/10 text-sky-400 rounded-xl">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-slate-400">Jami Topshirilgan</div>
-            <div className="text-lg font-bold text-white">{results.length} ta test</div>
-          </div>
-        </div>
+        <button
+          onClick={() => navigate('/quizzes')}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs transition-all shadow-md shadow-sky-500/20 self-start sm:self-auto"
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Yangi Test Topshirish</span>
+        </button>
       </div>
 
-      {/* Filter va Search Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2 relative">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      {/* Filterlar va Qidiruv */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Quiz nomi yoki kategoriya bo'yicha qidirish..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 transition-colors"
+            placeholder="Test nomi yoki kategoriya bo'yicha qidirish..."
+            className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all backdrop-blur-md"
           />
         </div>
 
-        <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl">
-          {(['ALL', 'PASSED', 'FAILED'] as const).map((status) => (
+        <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 p-1.5 rounded-2xl">
+          {(['ALL', 'PASSED', 'FAILED'] as const).map((filter) => (
             <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                statusFilter === status
-                  ? 'bg-sky-500 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
+              key={filter}
+              onClick={() => setStatusFilter(filter)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                statusFilter === filter
+                  ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              {status === 'ALL' && 'Barchasi'},
-              {status === 'PASSED' && 'O\'tganlar'}
-              {status === 'FAILED' && 'O\'tmaganlar'}
+              {filter === 'ALL' ? 'Barchasi' : filter === 'PASSED' ? "O'tganlar" : "O'tmaganlar"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Results List / Grid */}
+      {/* Natijalar Jadvali / Kartalari */}
       {filteredResults.length === 0 ? (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
-          <Award className="w-12 h-12 text-slate-600 mx-auto" />
-          <h3 className="text-lg font-semibold text-white">Natijalar topilmadi</h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">
-            Siz hali mos keladigan testlarni topshirmagansiz yoki qidiruv so'rovingizga mos natija mavjud emas.
+        <div className="text-center py-16 bg-slate-900/40 border border-dashed border-slate-800 rounded-3xl">
+          <FileText className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-white">Hech qanday natija topilmadi</h3>
+          <p className="text-slate-400 text-xs mt-1 max-w-sm mx-auto">
+            Hozircha siz ushbu shartlar bo'yicha test topshirmagansiz yoki qidiruv natija bermadi.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredResults.map((result) => (
-            <motion.div
-              key={result.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between hover:border-slate-700 transition-colors"
-            >
-              <div className="space-y-4">
-                {/* Header: Category & Status */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 font-medium">
-                    {result.categoryName}
-                  </span>
+        <div className="bg-slate-900/70 border border-slate-800 rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider bg-slate-800/40">
+                  <th className="py-3.5 px-5">Viktorina</th>
+                  <th className="py-3.5 px-4">Kategoriya</th>
+                  <th className="py-3.5 px-4">Holat</th>
+                  <th className="py-3.5 px-4">Ball</th>
+                  <th className="py-3.5 px-4">Ko'rsatkich</th>
+                  <th className="py-3.5 px-4">Sarflangan Vaqt</th>
+                  <th className="py-3.5 px-4">Sana</th>
+                  <th className="py-3.5 px-5 text-right">Sertifikat</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                {filteredResults.map((item) => {
+                  const isPassed = item.passed !== undefined ? item.passed : Boolean(item.isPassed);
+                  const timeSec = item.timeSpentSeconds || item.timeTakenSeconds || 0;
+                  const mins = Math.floor(timeSec / 60);
+                  const secs = timeSec % 60;
 
-                  {result.passed ? (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>O'tdi</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-md border border-red-500/20">
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>O'tmadi</span>
-                    </span>
-                  )}
-                </div>
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-4 px-5">
+                        <span className="font-bold text-white block">{item.quizTitle}</span>
+                        <span className="text-[11px] text-slate-500 font-mono">ID: #{item.id}</span>
+                      </td>
 
-                {/* Quiz Title */}
-                <h3 className="text-lg font-bold text-white line-clamp-2">
-                  {result.quizTitle}
-                </h3>
+                      <td className="py-4 px-4 text-xs font-semibold text-slate-300">
+                        {item.categoryName}
+                      </td>
 
-                {/* Main Metrics */}
-                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
-                  <div>
-                    <div className="text-xs text-slate-400">Natija</div>
-                    <div className="text-base font-bold text-white font-mono">
-                      {result.score}/{result.totalQuestions} ({result.percentage}%)
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Sarflangan Vaqt</div>
-                    <div className="text-base font-bold text-slate-300 font-mono flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{formatTime(result.timeSpentSeconds)}</span>
-                    </div>
-                  </div>
-                </div>
+                      <td className="py-4 px-4">
+                        {isPassed ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>O'tdi</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>O'tmadi</span>
+                          </span>
+                        )}
+                      </td>
 
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>
-                    {new Date(result.completedAt).toLocaleDateString('uz-UZ', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-              </div>
+                      <td className="py-4 px-4 font-mono font-bold text-amber-400">
+                        {item.score} ball
+                      </td>
 
-              {/* Action Button */}
-              <div className="pt-5 mt-4 border-t border-slate-800">
-                {result.passed ? (
-                  <button
-                    onClick={() => handleDownloadCertificate(result.id, result.quizTitle)}
-                    disabled={downloadingId === result.id}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-semibold transition-all disabled:opacity-50 shadow-lg shadow-sky-500/10"
-                  >
-                    {downloadingId === result.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Sertifikat Tayyorlanmoqda...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>Sertifikatni Yuklab Olish</span>
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <div className="text-center py-2 px-3 rounded-xl bg-slate-950 text-slate-500 text-xs font-medium border border-slate-800/50">
-                    Sertifikat olish uchun kamida 70% to'plashingiz kerak
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-white">
+                            {item.percentage}%
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            ({item.correctAnswers}/{item.totalQuestions})
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-4 text-xs text-slate-400 font-mono">
+                        {mins}m {secs}s
+                      </td>
+
+                      <td className="py-4 px-4 text-xs text-slate-400">
+                        {item.completedAt}
+                      </td>
+
+                      <td className="py-4 px-5 text-right">
+                        <button
+                          onClick={() => handleDownloadCertificate(item.id, item.quizTitle)}
+                          disabled={downloadingId === item.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-semibold border border-sky-500/30 transition-all disabled:opacity-50"
+                        >
+                          {downloadingId === item.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5" />
+                          )}
+                          <span>PDF</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

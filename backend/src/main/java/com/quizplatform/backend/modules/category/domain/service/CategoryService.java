@@ -43,4 +43,29 @@ public class CategoryService {
     public List<Category> getRootCategories() {
         return categoryRepository.findByParentCategoryIsNull();
     }
+
+    @Transactional
+    public Category updateCategory(Long id, QuizDto.CategoryRequest request) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Kategoriya topilmadi"));
+
+        category.setName(request.getName());
+        category.setDescription(request.getDescription());
+        category.setIconUrl(request.getIconUrl());
+
+        if (request.getParentId() != null) {
+            Category parent = categoryRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new RuntimeException("Ota kategoriya topilmadi"));
+            category.setParentCategory(parent);
+        } else {
+            category.setParentCategory(null);
+        }
+
+        return categoryRepository.save(category);
+    }
+
+    @Transactional
+    public void deleteCategory(Long id) {
+        categoryRepository.deleteById(id);
+    }
 }

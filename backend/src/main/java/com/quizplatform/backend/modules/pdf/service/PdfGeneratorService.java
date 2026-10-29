@@ -50,10 +50,19 @@ public class PdfGeneratorService {
             document.add(subHeader);
 
             // Foydalanuvchi va Quiz ma'lumotlari
+            String userName = result.getUser() != null && result.getUser().getFullName() != null && !result.getUser().getFullName().isBlank()
+                    ? result.getUser().getFullName()
+                    : (result.getUser() != null ? result.getUser().getUsername() : "Foydalanuvchi");
+            String usernameHandle = result.getUser() != null ? "@" + result.getUser().getUsername() : "";
+            String quizTitle = result.getQuiz() != null ? result.getQuiz().getTitle() : "Quiz";
+            String completedTime = result.getCompletedAt() != null
+                    ? result.getCompletedAt().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+                    : java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
+
             Paragraph userInfo = new Paragraph()
-                    .add("Foydalanuvchi: " + result.getUser().getFullName() + " (@" + result.getUser().getUsername() + ")\n")
-                    .add("Test Nomi: " + result.getQuiz().getTitle() + "\n")
-                    .add("Sana: " + result.getCompletedAt().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")))
+                    .add("Foydalanuvchi: " + userName + " (" + usernameHandle + ")\n")
+                    .add("Test Nomi: " + quizTitle + "\n")
+                    .add("Sana: " + completedTime)
                     .setFontSize(12)
                     .setMarginBottom(20);
             document.add(userInfo);

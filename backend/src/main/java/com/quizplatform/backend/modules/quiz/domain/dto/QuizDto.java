@@ -20,12 +20,14 @@ public class QuizDto {
 
     @Data
     public static class OptionRequest {
+        private Long id;
         @NotBlank private String optionText;
         @NotNull private Boolean isCorrect;
     }
 
     @Data
     public static class QuestionRequest {
+        private Long id;
         @NotBlank private String content;
         private String codeSnippet;
         private Integer points = 10;

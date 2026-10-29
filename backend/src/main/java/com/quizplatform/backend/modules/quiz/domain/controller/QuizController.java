@@ -1,10 +1,8 @@
 package com.quizplatform.backend.modules.quiz.domain.controller;
 
 import com.quizplatform.backend.modules.category.domain.dto.CategoryResponse;
-import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.service.CategoryService;
 import com.quizplatform.backend.modules.quiz.domain.dto.QuizResponseDto;
-import com.quizplatform.backend.modules.quiz.domain.entity.Quiz;
 import com.quizplatform.backend.modules.quiz.domain.service.QuizService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +18,9 @@ public class QuizController {
     private final CategoryService categoryService;
     private final QuizService quizService;
 
-    // ROOT GET /api/v1/quizzes -> Barcha aktiv viktorinalarni qaytaradi
+    // ROOT GET /api/v1/quizzes -> Barcha aktiv viktorinalar ro'yxati
     @GetMapping
-    public ResponseEntity<List<Quiz>> getAllQuizzes() {
+    public ResponseEntity<List<QuizResponseDto.QuizSummaryResponse>> getAllQuizzes() {
         return ResponseEntity.ok(quizService.getAllQuizzes());
     }
 
@@ -32,7 +30,7 @@ public class QuizController {
     }
 
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<List<Quiz>> getQuizzesByCategory(@PathVariable Long categoryId) {
+    public ResponseEntity<List<QuizResponseDto.QuizSummaryResponse>> getQuizzesByCategory(@PathVariable Long categoryId) {
         return ResponseEntity.ok(quizService.getQuizzesByCategory(categoryId));
     }
 

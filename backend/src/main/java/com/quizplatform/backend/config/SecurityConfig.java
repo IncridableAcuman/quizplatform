@@ -36,17 +36,17 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 1. Brauzer yuboradigan barcha OPTIONS (pre-flight) so'rovlariga ochiq ruxsat
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        
+
                         // 2. Ochiq endpoint'lar
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/api/v1/categories/**", "/api/v1/quizzes/**").permitAll()
-                        .requestMatchers("/quizzes/**").permitAll()
                         .requestMatchers("/categories/**").permitAll()
-                        
+                        .requestMatchers("/quizzes/**").permitAll()
+                        .requestMatchers("/leaderboard/**").permitAll()
+
                         // 3. User va Admin uchun mos huquqlar
-                        .requestMatchers("/user/**").hasAnyAuthority("USER", "ADMIN", "ROLE_USER", "ROLE_ADMIN")
                         .requestMatchers("/admin/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
-                        
+                        .requestMatchers("/user/**", "/stats/**", "/results/**").authenticated()
+
                         // 4. Qolgan barcha so'rovlar avtorizatsiyadan o'tgan bo'lishi shart
                         .anyRequest().authenticated()
                 );

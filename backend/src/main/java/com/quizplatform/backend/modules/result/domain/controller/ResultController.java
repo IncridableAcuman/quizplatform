@@ -1,6 +1,5 @@
 package com.quizplatform.backend.modules.result.domain.controller;
 
-
 import com.quizplatform.backend.modules.pdf.service.PdfGeneratorService;
 import com.quizplatform.backend.modules.result.domain.dto.ResultDto;
 import com.quizplatform.backend.modules.result.domain.entity.Result;
@@ -27,18 +26,32 @@ public class ResultController {
     private final PdfGeneratorService pdfGeneratorService;
 
     @PostMapping("/submit")
-    public ResponseEntity<Result> submitQuiz(@AuthenticationPrincipal UserDetails userDetails,
-                                             @Valid @RequestBody ResultDto.SubmitQuizRequest request) {
+    public ResponseEntity<ResultDto.QuizResultResponse> submitQuiz(@AuthenticationPrincipal UserDetails userDetails,
+                                                                   @Valid @RequestBody ResultDto.SubmitQuizRequest request) {
         return ResponseEntity.ok(resultService.submitQuiz(userDetails.getUsername(), request));
     }
 
     @GetMapping("/my-history")
-    public ResponseEntity<List<Result>> getMyHistory(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<ResultDto.ResultHistoryResponse>> getMyHistory(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(resultService.getUserResults(userDetails.getUsername()));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<ResultDto.ResultHistoryResponse>> getHistoryAlias(@AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(resultService.getUserResults(userDetails.getUsername()));
     }
 
     @GetMapping("/{resultId}/pdf")
     public ResponseEntity<InputStreamResource> downloadPdfResult(@PathVariable Long resultId) {
+        return servePdf(resultId);
+    }
+
+    @GetMapping("/{resultId}/certificate")
+    public ResponseEntity<InputStreamResource> downloadCertificate(@PathVariable Long resultId) {
+        return servePdf(resultId);
+    }
+
+    private ResponseEntity<InputStreamResource> servePdf(Long resultId) {
         Result result = resultService.getResultById(resultId);
         ByteArrayInputStream bis = pdfGeneratorService.generateResultPdf(result);
 

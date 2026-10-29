@@ -12,6 +12,7 @@ import java.util.List;
 @Repository
 public interface ResultRepository extends JpaRepository<Result,Long> {
     List<Result> findByUserId(Long userId);
+    List<Result> findByUserIdOrderByCompletedAtDesc(Long userId);
     // Muayyan vaqt oralig'ida (Kunlik / Haftalik) eng ko'p ball toplagan top foydalanuvchilar
     @Query("""
         SELECT r.user.id AS userId, r.user.username AS username, r.user.fullName AS fullName, 

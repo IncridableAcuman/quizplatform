@@ -36,7 +36,7 @@ public class AuthService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName())
+                .fullName(request.getFullName() != null && !request.getFullName().isBlank() ? request.getFullName() : request.getUsername())
                 .role(Role.USER) // Boshlang'ich default rol
                 .build();
 
@@ -56,8 +56,31 @@ public class AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = tokenProvider.generateToken(authentication);
 
-        User user = userRepository.findByUsername(request.getUsername()).orElseThrow();
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Foydalanuvchi topilmadi"));
 
-        return new AuthDto.AuthResponse(jwt, user.getUsername(), user.getRole());
+        return AuthDto.AuthResponse.builder()
+                .accessToken(jwt)
+                .tokenType("Bearer")
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole())
+                .build();
+    }
+
+    public AuthDto.UserProfileResponse getCurrentUser(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Foydalanuvchi topilmadi"));
+
+        return AuthDto.UserProfileResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole())
+                .totalScore(user.getTotalScore() != null ? user.getTotalScore() : 0)
+                .build();
     }
 }

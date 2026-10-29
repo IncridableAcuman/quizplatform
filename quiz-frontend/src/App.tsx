@@ -9,9 +9,7 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { LeaderboardPage } from "./pages/leaderboard/LeaderboardPage";
 import { QuizzesPage } from "./pages/quiz/QuizzesPage";
 import { AdminQuizManagement } from "./pages/admin/AdminQuizManagement";
-
-
-
+import { ResultHistory } from "./pages/results/ResultHistory";
 
 export const App: React.FC = () => {
   return (
@@ -24,8 +22,9 @@ export const App: React.FC = () => {
         {/* Himoyalangan (Protected) Marshrutlar - MainLayout bilan */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/quizzes" element={<QuizzesPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/quizzes" element={<QuizzesPage />} />
+            <Route path="/results" element={<ResultHistory />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
           </Route>
 
@@ -33,7 +32,7 @@ export const App: React.FC = () => {
           <Route path="/quiz/:quizId" element={<QuizTakePage />} />
 
           {/* Faqat Admin uchun Yopiq Marshrut */}
-           <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+          <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
             <Route element={<MainLayout />}>
               <Route path="/admin" element={<AdminQuizManagement />} />
             </Route>

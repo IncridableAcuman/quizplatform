@@ -4,10 +4,10 @@ import {
   Plus,
   Trash2,
   Edit3,
-  HelpCircle,
   X,
   Save,
   BookOpen,
+  FolderPlus,
 } from "lucide-react";
 import { axiosClient } from "../../api/axiosClient";
 import type { Quiz, Category } from "../../types";
@@ -20,7 +20,9 @@ interface OptionDTO {
 
 interface QuestionDTO {
   id?: number;
-  content: string; // Backend 'content' fieldini kutadi (questionText o'rniga)
+  content: string;
+  codeSnippet?: string;
+  points?: number;
   options: OptionDTO[];
 }
 
@@ -29,7 +31,7 @@ interface QuizFormData {
   title: string;
   description: string;
   timeLimitMinutes: number;
-  passingScore: number; // <-- Qo'shildi
+  passingScore: number;
   difficulty: "EASY" | "MEDIUM" | "HARD";
   categoryId: number | null;
   questions: QuestionDTO[];
@@ -40,128 +42,120 @@ export const AdminQuizManagement: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Form State
+  // Kategoriya Form State
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryDesc, setCategoryDesc] = useState("");
+
+  // Quiz Form State
   const [formData, setFormData] = useState<QuizFormData>({
     title: "",
     description: "",
     timeLimitMinutes: 15,
-    passingScore: 60, // <-- O'tish bali uchun odatiy qiymat (masalan: 60)
+    passingScore: 60,
     difficulty: "MEDIUM",
     categoryId: null,
     questions: [],
   });
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [quizzesRes, categoriesRes] = await Promise.all([
+        axiosClient.get<Quiz[]>("/quizzes"),
+        axiosClient.get<Category[]>("/categories"),
+      ]);
 
-    const fetchData = async () => {
-      try {
-        const [quizzesRes, categoriesRes] = await Promise.all([
-          axiosClient.get<Quiz[]>("/quizzes"),
-          axiosClient.get<Category[]>("/categories"),
-        ]);
+      setQuizzes(quizzesRes.data || []);
+      setCategories(categoriesRes.data || []);
 
-        if (isMounted) {
-          setQuizzes(quizzesRes.data);
-          setCategories(categoriesRes.data);
-          setLoading(false);
-
-          // Kategoriya ro'yxati kelishi bilan default ID ni set qilamiz
-          if (categoriesRes.data && categoriesRes.data.length > 0) {
-            setFormData((prev) => ({
-              ...prev,
-              categoryId: categoriesRes.data[0].id,
-            }));
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error("Ma'lumotlarni yuklashda xatolik:", err);
-          setLoading(false);
-        }
+      if (categoriesRes.data && categoriesRes.data.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          categoryId: prev.categoryId || categoriesRes.data[0].id,
+        }));
       }
-    };
+    } catch (err) {
+      console.error("Ma'lumotlarni yuklashda xatolik:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  const refreshQuizzes = async () => {
-    try {
-      const response = await axiosClient.get<Quiz[]>("/quizzes");
-      setQuizzes(response.data);
-    } catch (err) {
-      console.error("Quizlarni qayta yuklashda xatolik:", err);
-    }
-  };
-
-  const openModal = (quiz?: Quiz) => {
-    const defaultCategoryId = categories.length > 0 ? categories[0].id : null;
-
-    if (quiz) {
-      const mappedQuestions: QuestionDTO[] = (quiz.questions || []).map(
-        (q) => ({
-          id: q.id,
-          content: q.content,
-          options: (q.options || []).map((opt) => ({
-            id: opt.id,
-            optionText: opt.optionText,
-            isCorrect: opt.isCorrect ?? false,
-          })),
-        }),
-      );
-
-      setFormData({
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description || "",
-        timeLimitMinutes: quiz.timeLimitMinutes,
-        passingScore: quiz.passingScore || 60, // <-- Tahrirlashda mavjudini olish
-        difficulty: quiz.difficulty || "MEDIUM",
-        categoryId: quiz.category?.id || defaultCategoryId,
-        questions: mappedQuestions,
-      });
-    } else {
-      setFormData({
-        title: "",
-        description: "",
-        timeLimitMinutes: 15,
-        passingScore: 60,
-        difficulty: "MEDIUM",
-        categoryId: defaultCategoryId,
-        questions: [
-          {
-            content: "",
-            options: [
-              { optionText: "", isCorrect: true },
-              { optionText: "", isCorrect: false },
-              { optionText: "", isCorrect: false },
-              { optionText: "", isCorrect: false },
-            ],
-          },
-        ],
-      });
-    }
+  const openCreateModal = () => {
+    setFormData({
+      title: "",
+      description: "",
+      timeLimitMinutes: 15,
+      passingScore: 60,
+      difficulty: "MEDIUM",
+      categoryId: categories.length > 0 ? categories[0].id : null,
+      questions: [
+        {
+          content: "",
+          points: 10,
+          options: [
+            { optionText: "", isCorrect: true },
+            { optionText: "", isCorrect: false },
+            { optionText: "", isCorrect: false },
+            { optionText: "", isCorrect: false },
+          ],
+        },
+      ],
+    });
     setIsModalOpen(true);
   };
-  const handleDeleteQuiz = async (id: number) => {
-    if (
-      !window.confirm(
-        "Haqiqatdan ham ushbu quizni va uning barcha savollarini o'chirmoqchimisiz?",
-      )
-    )
-      return;
+
+  const openEditModal = async (quizId: number) => {
+    try {
+      setLoading(true);
+      const response = await axiosClient.get(`/admin/quizzes/${quizId}`);
+      const data = response.data;
+
+      setFormData({
+        id: data.id,
+        title: data.title,
+        description: data.description || "",
+        timeLimitMinutes: data.timeLimitMinutes || 15,
+        passingScore: data.passingScore || 60,
+        difficulty: data.difficulty || "MEDIUM",
+        categoryId: data.category?.id || (categories.length > 0 ? categories[0].id : null),
+        questions: (data.questions || []).map((q: any) => ({
+          id: q.id,
+          content: q.content,
+          codeSnippet: q.codeSnippet || "",
+          points: q.points || 10,
+          options: (q.options || []).map((opt: any) => ({
+            id: opt.id,
+            optionText: opt.optionText,
+            isCorrect: Boolean(opt.isCorrect),
+          })),
+        })),
+      });
+      setIsModalOpen(true);
+    } catch (err) {
+      console.error("Quiz ma'lumotlarini yuklashda xatolik:", err);
+      alert("Quizni yuklashda xatolik yuz berdi");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteQuiz = async (quizId: number) => {
+    if (!window.confirm("Haqiqatan ham ushbu quizni o'chirmoqchimisiz?")) return;
 
     try {
-      await axiosClient.delete(`/admin/quizzes/${id}`);
-      setQuizzes((prev) => prev.filter((q) => q.id !== id));
+      await axiosClient.delete(`/admin/quizzes/${quizId}`);
+      await fetchData();
     } catch (err) {
       console.error("Quizni o'chirishda xatolik:", err);
+      alert("Quizni o'chirib bo'lmadi.");
     }
   };
 
@@ -172,6 +166,7 @@ export const AdminQuizManagement: React.FC = () => {
         ...prev.questions,
         {
           content: "",
+          points: 10,
           options: [
             { optionText: "", isCorrect: true },
             { optionText: "", isCorrect: false },
@@ -183,27 +178,64 @@ export const AdminQuizManagement: React.FC = () => {
     }));
   };
 
-  const handleRemoveQuestion = (index: number) => {
+  const handleRemoveQuestion = (qIndex: number) => {
     setFormData((prev) => ({
       ...prev,
-      questions: prev.questions.filter((_, qIdx) => qIdx !== index),
+      questions: prev.questions.filter((_, idx) => idx !== qIndex),
     }));
   };
 
-  const handleSelectCorrectOption = (qIndex: number, oIndex: number) => {
+  const handleQuestionChange = (qIndex: number, field: string, value: any) => {
     setFormData((prev) => {
-      const updatedQuestions = [...prev.questions];
-      updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.map(
-        (opt, idx) => ({
-          ...opt,
-          isCorrect: idx === oIndex,
-        }),
-      );
-      return { ...prev, questions: updatedQuestions };
+      const updated = [...prev.questions];
+      updated[qIndex] = { ...updated[qIndex], [field]: value };
+      return { ...prev, questions: updated };
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleOptionChange = (qIndex: number, optIndex: number, text: string) => {
+    setFormData((prev) => {
+      const updated = [...prev.questions];
+      const opts = [...updated[qIndex].options];
+      opts[optIndex] = { ...opts[optIndex], optionText: text };
+      updated[qIndex] = { ...updated[qIndex], options: opts };
+      return { ...prev, questions: updated };
+    });
+  };
+
+  const handleSetCorrectOption = (qIndex: number, optIndex: number) => {
+    setFormData((prev) => {
+      const updated = [...prev.questions];
+      const opts = updated[qIndex].options.map((opt, idx) => ({
+        ...opt,
+        isCorrect: idx === optIndex,
+      }));
+      updated[qIndex] = { ...updated[qIndex], options: opts };
+      return { ...prev, questions: updated };
+    });
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryName.trim()) return;
+
+    try {
+      await axiosClient.post("/admin/categories", {
+        name: categoryName,
+        description: categoryDesc,
+        iconUrl: "code",
+      });
+      setIsCategoryModalOpen(false);
+      setCategoryName("");
+      setCategoryDesc("");
+      await fetchData();
+    } catch (err) {
+      console.error("Kategoriya yaratishda xatolik:", err);
+      alert("Kategoriya yaratishda xatolik yuz berdi");
+    }
+  };
+
+  const handleSubmitQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.categoryId) {
@@ -211,9 +243,13 @@ export const AdminQuizManagement: React.FC = () => {
       return;
     }
 
+    if (formData.questions.length === 0) {
+      alert("Kamida bitta savol qo'shishingiz kerak!");
+      return;
+    }
+
     setSubmitting(true);
 
-    // Backend payload validation formatga keltirish
     const payload = {
       title: formData.title,
       description: formData.description,
@@ -222,10 +258,10 @@ export const AdminQuizManagement: React.FC = () => {
       difficulty: formData.difficulty,
       categoryId: Number(formData.categoryId),
       questions: formData.questions.map((q) => ({
-        ...(q.id && { id: q.id }),
         content: q.content,
+        codeSnippet: q.codeSnippet,
+        points: Number(q.points || 10),
         options: q.options.map((opt) => ({
-          ...(opt.id && { id: opt.id }),
           optionText: opt.optionText,
           isCorrect: Boolean(opt.isCorrect),
         })),
@@ -239,98 +275,119 @@ export const AdminQuizManagement: React.FC = () => {
         await axiosClient.post("/admin/quizzes", payload);
       }
       setIsModalOpen(false);
-      await refreshQuizzes();
+      await fetchData();
     } catch (err: any) {
-      console.error(
-        "Quizni saqlashda xatolik:",
-        err.response?.data || err.message,
-      );
-      alert(
-        `Xatolik: ${JSON.stringify(err.response?.data?.message || err.response?.data || "Kiritilgan ma'lumotlarni tekshiring")}`,
-      );
+      console.error("Quizni saqlashda xatolik:", err);
+      alert(`Xatolik: ${err.response?.data?.message || "Ma'lumotlarni tekshiring"}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) {
+  if (loading && quizzes.length === 0) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-col justify-center items-center h-80 gap-3">
+        <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-400 text-sm">Admin paneli yuklanmoqda...</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      {/* Sarlavha & Boshqaruv tugmalari */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
             <BookOpen className="w-7 h-7 text-sky-400" />
             <span>Quiz va Savollar Boshqaruvi</span>
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Yangi quizlar va savollar to'plamini yaratish hamda boshqarish
+            Yangi viktorinalar, savollar to'plami va kategoriyalarni boshqarish
           </p>
         </div>
 
-        <button
-          onClick={() => openModal()}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-sm transition-all shadow-lg shadow-sky-500/20"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Yangi Quiz Yaratish</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-all border border-slate-700"
+          >
+            <FolderPlus className="w-4 h-4 text-sky-400" />
+            <span>Kategoriya Qo'shish</span>
+          </button>
+
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-sky-500/20 active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Yangi Quiz Yaratish</span>
+          </button>
+        </div>
       </div>
 
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 overflow-hidden">
+      {/* Quizlar Jadvali */}
+      <div className="bg-slate-900/70 border border-slate-800 rounded-3xl overflow-hidden backdrop-blur-xl shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider">
-                <th className="py-3 px-4">Quiz Nomi</th>
-                <th className="py-3 px-4">Kategoriya</th>
-                <th className="py-3 px-4">Qiyinchilik</th>
-                <th className="py-3 px-4">Vaqt</th>
-                <th className="py-3 px-4">Savollar</th>
-                <th className="py-3 px-4 text-right">Amallar</th>
+              <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider bg-slate-800/40">
+                <th className="py-3.5 px-6">Quiz Nomi</th>
+                <th className="py-3.5 px-4">Kategoriya</th>
+                <th className="py-3.5 px-4">Qiyinchilik</th>
+                <th className="py-3.5 px-4">Vaqt</th>
+                <th className="py-3.5 px-4">Savollar Soni</th>
+                <th className="py-3.5 px-6 text-right">Amallar</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {Array.isArray(quizzes) && quizzes.map((quiz) => (
-                <tr
-                  key={quiz.id}
-                  className="hover:bg-slate-800/30 transition-colors"
-                >
-                  <td className="py-3.5 px-4 font-semibold text-white">
+              {quizzes.map((quiz) => (
+                <tr key={quiz.id} className="hover:bg-slate-800/30 transition-colors">
+                  <td className="py-4 px-6 font-bold text-white">
                     {quiz.title}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-400">
-                    {quiz.category?.name || "Umumiy"}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="text-xs px-2.5 py-1 rounded-md font-mono bg-slate-800 text-sky-400 border border-slate-700">
-                      {quiz.difficulty || "MEDIUM"}
+                    <span className="text-[11px] text-slate-500 font-normal block truncate max-w-sm">
+                      {quiz.description}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 text-slate-400">
-                    {quiz.timeLimitMinutes} min
+
+                  <td className="py-4 px-4 text-xs font-semibold text-sky-400">
+                    {quiz.category?.name || "Kategoriyasiz"}
                   </td>
-                  <td className="py-3.5 px-4 font-mono">
-                    {quiz.questions?.length || 0} ta
+
+                  <td className="py-4 px-4">
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg border ${
+                        quiz.difficulty === "EASY"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : quiz.difficulty === "MEDIUM"
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                      }`}
+                    >
+                      {quiz.difficulty}
+                    </span>
                   </td>
-                  <td className="py-3.5 px-4 text-right">
+
+                  <td className="py-4 px-4 text-xs text-slate-400 font-mono">
+                    {quiz.timeLimitMinutes} daq
+                  </td>
+
+                  <td className="py-4 px-4 text-xs font-semibold text-slate-300">
+                    {quiz.questionsCount || quiz.questions?.length || 0} ta
+                  </td>
+
+                  <td className="py-4 px-6 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => openModal(quiz)}
-                        className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-sky-400 hover:bg-slate-700 transition-colors"
+                        onClick={() => openEditModal(quiz.id)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 transition-colors"
                         title="Tahrirlash"
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteQuiz(quiz.id)}
-                        className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                         title="O'chirish"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -344,21 +401,15 @@ export const AdminQuizManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Quiz Yaratish / Tahrirlash Modali */}
       <AnimatePresence>
         {isModalOpen && (
-          <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed top-6 bottom-6 left-4 right-4 max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl z-50 p-6 flex flex-col shadow-2xl overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl"
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <h2 className="text-xl font-bold text-white">
@@ -366,262 +417,286 @@ export const AdminQuizManagement: React.FC = () => {
                 </h2>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form
-                id="quiz-form"
-                onSubmit={handleSubmit}
-                className="flex-1 overflow-y-auto py-6 space-y-6 pr-2"
-              >
+              <form onSubmit={handleSubmitQuiz} className="space-y-6">
+                {/* Asosiy Quiz Ma'lumotlari */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
                       Quiz Nomi
                     </label>
                     <input
                       type="text"
                       required
                       value={formData.title}
-                      onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
-                      }
-                      placeholder="Masalan: Advanced Java Concurrency"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="masalan: Java Multithreading Master"
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Kategoriya ({categories.length} ta mavjud)
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                      Kategoriya
                     </label>
                     <select
-                      value={formData.categoryId ?? ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          categoryId: Number(e.target.value),
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      value={formData.categoryId || ""}
+                      onChange={(e) => setFormData({ ...formData, categoryId: Number(e.target.value) })}
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     >
-                      {categories.length === 0 ? (
-                        <option value="" disabled>
-                          Kategoriyalar yuklanmadi yoki mavjud emas
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
                         </option>
-                      ) : (
-                        categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))
-                      )}
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Qiyinchilik Darajasi
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                      Qiyinchilik
                     </label>
                     <select
                       value={formData.difficulty}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          difficulty: e.target.value as
-                            | "EASY"
-                            | "MEDIUM"
-                            | "HARD",
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as any })}
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-sky-500"
                     >
-                      <option value="EASY">Oson (Easy)</option>
-                      <option value="MEDIUM">O'rta (Medium)</option>
-                      <option value="HARD">Qiyin (Hard)</option>
+                      <option value="EASY">Oson (EASY)</option>
+                      <option value="MEDIUM">O'rta (MEDIUM)</option>
+                      <option value="HARD">Qiyin (HARD)</option>
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Vaqt Chegarasi (Daqiqa)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={180}
-                      required
-                      value={formData.timeLimitMinutes}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          timeLimitMinutes: Number(e.target.value),
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      O'tish Balli (%)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      required
-                      value={formData.passingScore}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          passingScore: Number(e.target.value),
-                        })
-                      }
-                      placeholder="Masalan: 60"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Tavsif (Description)
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Quiz haqida qisqacha ma'lumot..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                    />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                        Vaqt (daq)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={formData.timeLimitMinutes}
+                        onChange={(e) => setFormData({ ...formData, timeLimitMinutes: Number(e.target.value) })}
+                        className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                        O'tish Bali (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        required
+                        value={formData.passingScore}
+                        onChange={(e) => setFormData({ ...formData, passingScore: Number(e.target.value) })}
+                        className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <hr className="border-slate-800" />
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                    Tavsif (Description)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Quiz haqida qisqacha ma'lumot..."
+                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
 
-                <div className="space-y-6">
+                {/* Savollar Ro'yxati */}
+                <div className="space-y-4 pt-4 border-t border-slate-800">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <HelpCircle className="w-5 h-5 text-sky-400" />
-                      <span>
-                        Savollar Ro'yxati ({formData.questions.length})
-                      </span>
-                    </h3>
-
+                    <h3 className="text-base font-bold text-white">Savollar ({formData.questions.length})</h3>
                     <button
                       type="button"
                       onClick={handleAddQuestion}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 text-xs font-semibold transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-semibold border border-sky-500/30"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Savol Qo'shish</span>
+                      <span>Savol qo'shish</span>
                     </button>
                   </div>
 
-                  {formData.questions.map((question, qIdx) => (
+                  {formData.questions.map((q, qIdx) => (
                     <div
                       key={qIdx}
-                      className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-4"
+                      className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-4 space-y-3"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-mono font-bold text-sky-400">
-                          #{qIdx + 1}-Savol
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold text-sky-400 uppercase">
+                          Savol #{qIdx + 1}
                         </span>
-                        {formData.questions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveQuestion(qIdx)}
-                            className="text-slate-500 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveQuestion(qIdx)}
+                          className="text-slate-400 hover:text-rose-400 text-xs flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>O'chirish</span>
+                        </button>
                       </div>
 
                       <input
                         type="text"
                         required
                         placeholder="Savol matnini kiriting..."
-                        value={question.content}
-                        onChange={(e) => {
-                          const updated = [...formData.questions];
-                          updated[qIdx].content = e.target.value;
-                          setFormData({ ...formData, questions: updated });
-                        }}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
+                        value={q.content}
+                        onChange={(e) => handleQuestionChange(qIdx, "content", e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-sky-500"
                       />
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                        {question.options.map((option, oIdx) => (
-                          <div
-                            key={oIdx}
-                            className={`flex items-center gap-2 border p-2.5 rounded-xl transition-colors ${
-                              option.isCorrect
-                                ? "border-emerald-500/50 bg-emerald-500/5"
-                                : "border-slate-800 bg-slate-900"
-                            }`}
-                          >
+                      <textarea
+                        rows={2}
+                        placeholder="Kod namunasi (ixtiyoriy, code snippet)..."
+                        value={q.codeSnippet || ""}
+                        onChange={(e) => handleQuestionChange(qIdx, "codeSnippet", e.target.value)}
+                        className="w-full bg-slate-950 font-mono text-xs border border-slate-800 rounded-xl py-2 px-3 text-sky-300 focus:outline-none focus:border-sky-500"
+                      />
+
+                      {/* Variantlar */}
+                      <div className="space-y-2 pt-1">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">
+                          Variantlar (To'g'ri javobni tanlang):
+                        </span>
+                        {q.options.map((opt, oIdx) => (
+                          <div key={oIdx} className="flex items-center gap-2">
                             <input
                               type="radio"
                               name={`correct-opt-${qIdx}`}
-                              checked={option.isCorrect}
-                              onChange={() =>
-                                handleSelectCorrectOption(qIdx, oIdx)
-                              }
-                              className="accent-emerald-500 w-4 h-4 cursor-pointer"
+                              checked={opt.isCorrect}
+                              onChange={() => handleSetCorrectOption(qIdx, oIdx)}
+                              className="w-4 h-4 text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-900 cursor-pointer"
                             />
                             <input
                               type="text"
                               required
-                              placeholder={`Variant ${oIdx + 1}`}
-                              value={option.optionText}
-                              onChange={(e) => {
-                                const updated = [...formData.questions];
-                                updated[qIdx].options[oIdx].optionText =
-                                  e.target.value;
-                                setFormData({
-                                  ...formData,
-                                  questions: updated,
-                                });
-                              }}
-                              className="w-full bg-transparent text-xs text-white focus:outline-none"
+                              placeholder={`${oIdx + 1}-variant matni`}
+                              value={opt.optionText}
+                              onChange={(e) => handleOptionChange(qIdx, oIdx, e.target.value)}
+                              className={`flex-1 bg-slate-900 border rounded-xl py-1.5 px-3 text-xs text-white focus:outline-none ${
+                                opt.isCorrect
+                                  ? "border-emerald-500 ring-1 ring-emerald-500"
+                                  : "border-slate-700"
+                              }`}
                             />
+                            {opt.isCorrect && (
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+                                To'g'ri
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Submit */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl text-slate-400 hover:text-white text-xs font-semibold"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs shadow-lg shadow-sky-500/20 transition-all disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{submitting ? "Saqlanmoqda..." : "Saqlash"}</span>
+                  </button>
+                </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+      {/* Kategoriya Yaratish Modali */}
+      <AnimatePresence>
+        {isCategoryModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FolderPlus className="w-5 h-5 text-sky-400" />
+                  <span>Yangi Kategoriya</span>
+                </h3>
                 <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white"
                 >
-                  Bekor Qilish
-                </button>
-
-                <button
-                  type="submit"
-                  form="quiz-form"
-                  disabled={submitting}
-                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-semibold transition-all disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{submitting ? "Saqlanmoqda..." : "Saqlash"}</span>
+                  <X className="w-4 h-4" />
                 </button>
               </div>
+
+              <form onSubmit={handleCreateCategory} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                    Kategoriya Nomi
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={categoryName}
+                    onChange={(e) => setCategoryName(e.target.value)}
+                    placeholder="masalan: DevOps & Cloud"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                    Tavsif
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={categoryDesc}
+                    onChange={(e) => setCategoryDesc(e.target.value)}
+                    placeholder="Kategoriya yo'nalishi haqida qisqacha..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-semibold"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-semibold shadow-md shadow-sky-500/20"
+                  >
+                    Yaratish
+                  </button>
+                </div>
+              </form>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </div>

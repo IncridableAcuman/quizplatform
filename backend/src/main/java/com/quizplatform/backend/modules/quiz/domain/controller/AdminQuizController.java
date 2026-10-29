@@ -1,9 +1,10 @@
 package com.quizplatform.backend.modules.quiz.domain.controller;
 
-
+import com.quizplatform.backend.modules.category.domain.dto.CategoryResponse;
 import com.quizplatform.backend.modules.category.domain.entity.Category;
 import com.quizplatform.backend.modules.category.domain.service.CategoryService;
 import com.quizplatform.backend.modules.quiz.domain.dto.QuizDto;
+import com.quizplatform.backend.modules.quiz.domain.dto.QuizResponseDto;
 import com.quizplatform.backend.modules.quiz.domain.entity.Quiz;
 import com.quizplatform.backend.modules.quiz.domain.service.QuizService;
 import jakarta.validation.Valid;
@@ -22,13 +23,24 @@ public class AdminQuizController {
     private final QuizService quizService;
 
     @PostMapping("/categories")
-    public ResponseEntity<Category> createCategory(@Valid @RequestBody QuizDto.CategoryRequest request) {
-        return ResponseEntity.ok(categoryService.createCategory(request));
+    public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody QuizDto.CategoryRequest request) {
+        Category saved = categoryService.createCategory(request);
+        return ResponseEntity.ok(CategoryResponse.fromEntity(saved));
+    }
+
+    @GetMapping("/quizzes/{id}")
+    public ResponseEntity<QuizResponseDto.QuizAdminResponse> getQuizForAdmin(@PathVariable Long id) {
+        return ResponseEntity.ok(quizService.getQuizForAdmin(id));
     }
 
     @PostMapping("/quizzes")
     public ResponseEntity<Quiz> createQuiz(@Valid @RequestBody QuizDto.QuizRequest request) {
         return ResponseEntity.ok(quizService.createQuiz(request));
+    }
+
+    @PutMapping("/quizzes/{id}")
+    public ResponseEntity<Quiz> updateQuiz(@PathVariable Long id, @Valid @RequestBody QuizDto.QuizRequest request) {
+        return ResponseEntity.ok(quizService.updateQuiz(id, request));
     }
 
     @DeleteMapping("/quizzes/{id}")
